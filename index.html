@@ -86,7 +86,26 @@
   <div class="telegram-btn" id="telegramBtn"><i class="fab fa-telegram"></i></div>
   <div class="telegram-modal" id="telegramModal"><div class="telegram-content"><h3>Join Our Telegram Channel</h3><p>Stay updated with the latest course materials, announcements, and educational resources.</p><button class="btn" id="joinTelegramBtn"><i class="fab fa-telegram"></i> Join Telegram</button><button class="btn btn-secondary" id="closeTelegramBtn" style="margin-top:10px">Close</button></div></div>
 
+
+
+
 <script>
+    function generateIframe(videoId) {
+  return `
+    <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;">
+      <iframe 
+        src="https://geo.dailymotion.com/player.html?video=${videoId}"
+        style="width:100%; height:100%; position:absolute; left:0; top:0; border:none;"
+        allowfullscreen
+        title="White Lotus Lecture Video"
+        allow="web-share">
+      </iframe>
+    </div>
+  `;
+}
+
+
+
 /* ---------- CONFIG ---------- */
 const CONFIG = {
   REQUIRE_KEY: true,                // true = must have a valid token to view index.html
@@ -134,6 +153,8 @@ document.addEventListener('DOMContentLoaded', ()=> {
   initApp();
 });
 
+
+  
 /* ---------- App data (kept from your original file) ---------- */
 const SEMESTERS = [
   { id: "1-2", name: "Semester 1-2", icon: "fas fa-book-open" },
@@ -825,11 +846,11 @@ const COURSES = {
                         description: "Maths ",
                         units: [
                             {
-                                name: "Unit 1",
+                                name: "Unit 1 - Matrix",
                                 lectures: [
-                                    { name: "Lec 1", url: "https://dai.ly/x9u6250" },
-                                    { name: "", url: "" },
-                                    { name: "", url: "" }
+                                  {name : "Syllabus", url : "dm:x9u78fa"},
+                                    { name: "Lec - 1", url: "dm:x9u6250", pdf : "https://jumpshare.com/share/hwv948IiaSSZLn6eDtTR" },
+                                    
                                 ]
                             }
                         ]
@@ -969,8 +990,42 @@ function openCourse(semId, deptId, courseId, push=true){
     const lectureList = unitItem.querySelector('.lecture-list');
     unit.lectures.forEach((lecture, lidx)=>{
       const lectureItem = document.createElement('div'); lectureItem.className='lecture-item';
-      lectureItem.innerHTML = `<div class="lecture-content"><i class="fas fa-play-circle"></i><div><div style="font-weight:500">${lecture.name}</div><div style="font-size:12px;color:var(--gray);margin-top:5px">Lecture ${lidx+1}</div></div></div><div class="lecture-loading"><i class="fas fa-spinner fa-spin"></i></div>`;
-      lectureItem.addEventListener('click', ()=> playLecture(lecture.url, lecture.name, lectureItem));
+      lectureItem.innerHTML = `
+  <div class="lecture-content">
+    <i class="fas fa-play-circle"></i>
+    <div>
+      <div style="font-weight:500">${lecture.name}</div>
+      <div style="font-size:12px;color:var(--gray);margin-top:5px">Lecture ${lidx+1}</div>
+    </div>
+  </div>
+
+  <div style="margin-top:10px; display:flex; gap:10px; justify-content:center;">
+
+    <!-- VIDEO BUTTON -->
+    <button 
+      onclick="event.stopPropagation(); playLecture('${lecture.url}', '${lecture.name}', this.parentNode.parentNode)"
+      style="background:#6c63ff; padding:5px 12px; border:none; border-radius:6px; color:white; cursor:pointer;">
+      Video
+    </button>
+
+    <!-- PDF BUTTON -->
+    ${
+      lecture.pdf 
+      ? `<button onclick="event.stopPropagation(); openPDF('${lecture.pdf}')" 
+          style="background:#ff6584; padding:5px 12px; border:none; border-radius:6px; color:white; cursor:pointer;">
+          PDF
+        </button>`
+      : ''
+    }
+
+  </div>
+
+  <div class="lecture-loading">
+    <i class="fas fa-spinner fa-spin"></i>
+  </div>
+`;
+
+lectureItem.addEventListener('click', ()=> playLecture(lecture.url, lecture.name, lectureItem));
       lectureList.appendChild(lectureItem);
     });
     unitHeader.addEventListener('click', ()=> {
@@ -1006,23 +1061,60 @@ async function playLecture(url, title, lectureItem=null){
   }
 }
 
-function jumpToUrl(url){
+function jumpToUrl(url) {
+
+  // CASE 1 → Dailymotion videoId
+  if (url.startsWith("dm:")) {
+    const videoId = url.replace("dm:", "");
+
+    const iframeHTML = `
+      <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;">
+        <iframe 
+          src="https://geo.dailymotion.com/player.html?video=${videoId}"
+          style="width:100%; height:100%; position:absolute; left:0; top:0; border:none;"
+          allowfullscreen
+          title="Video Player"
+          allow="web-share"></iframe>
+      </div>
+    `;
+
+    // Create popup modal
+    const modal = document.createElement("div");
+    modal.style.position = "fixed";
+    modal.style.top = "0";
+    modal.style.left = "0";
+    modal.style.width = "100%";
+    modal.style.height = "100%";
+    modal.style.background = "rgba(0,0,0,0.85)";
+    modal.style.zIndex = "99999";
+    modal.style.display = "flex";
+    modal.style.alignItems = "center";
+    modal.style.justifyContent = "center";
+
+    modal.innerHTML = `
+      <div style="width:90%; max-width:900px; background:#111; padding:20px; border-radius:10px;">
+        ${iframeHTML}
+        <button id="closeVideoModal" style="
+          margin-top:20px; padding:10px; width:100%; 
+          background:#6c63ff; color:white; border:none; 
+          border-radius:8px; cursor:pointer;">Close</button>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    document.getElementById("closeVideoModal").onclick = () => modal.remove();
+    return;
+  }
+
+  // CASE 2 → Normal Link
   currentLectureUrl = url;
   const newTab = window.open(url, '_blank', 'noopener,noreferrer,width=1200,height=700');
   if (!newTab) {
-    // popup blocked -> open modal with manual button
     document.getElementById('lectureModal').classList.add('active');
   }
   setTimeout(()=> hidePopup(), 1800);
 }
-
-function openLectureManually(){
-  if (currentLectureUrl) {
-    const a=document.createElement('a'); a.href=currentLectureUrl; a.target='_blank'; a.rel='noopener noreferrer'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  }
-  closeLectureModal();
-}
-function closeLectureModal(){ document.getElementById('lectureModal').classList.remove('active'); currentLectureUrl=''; }
 
 /* ---------- Adrino shortener (simple GET pattern used in your files) ---------- */
 async function shortenWithAdrino(targetUrl){
@@ -1061,6 +1153,10 @@ window.openCourse = openCourse;
 window.playLecture = playLecture;
 window.goBack = goBack;
 window.showWelcome = showWelcome;
+
+function openPDF(pdfUrl) {
+  window.open(pdfUrl, "_blank");
+}
 
 /* end of script */
 </script>
